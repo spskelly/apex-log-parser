@@ -1,8 +1,10 @@
-const CACHE_NAME = 'apex-log-parser-v3';
+const CACHE_NAME = 'apex-log-parser-v4';
 const FONT_CSS_URL = 'https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap';
 const ASSETS = [
   './',
   './index.html',
+  './styles.css',
+  './app.js',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',

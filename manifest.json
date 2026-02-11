@@ -1,8 +1,9 @@
 {
-  "name": "Apex Debug Log Parser",
+  "name": "Apex Log Parser",
   "short_name": "Log Parser",
   "description": "Parse Salesforce Apex debug logs into structured, filterable, color-coded views with governor limit tracking.",
-  "start_url": "./",
+  "scope": "/apex-log-parser/",
+  "start_url": "/apex-log-parser/",
   "display": "standalone",
   "background_color": "#08080f",
   "theme_color": "#08080f",
