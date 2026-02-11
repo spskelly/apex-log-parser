@@ -21,10 +21,10 @@
     --border: #1a1a2e;
     --border-dim: #111;
     --text: #d4d4d4;
-    --text-dim: #888;
-    --text-muted: #666;
-    --text-faint: #555;
-    --text-ghost: #444;
+    --text-dim: #999;
+    --text-muted: #808080;
+    --text-faint: #707070;
+    --text-ghost: #606060;
     --accent: #5cc9c2;
     --soql: #f4c542;
     --dml: #e8853d;
@@ -37,7 +37,7 @@
     --workflow: #6db36d;
     --flow: #4db8d8;
     --callout: #d4a056;
-    --system: #666;
+    --system: #808080;
     --search-hl: #f4c542;
     --mono: 'IBM Plex Mono', monospace;
     --sans: 'IBM Plex Sans', -apple-system, sans-serif;
@@ -348,7 +348,7 @@
     padding: 1px 6px;
     border-radius: 3px;
     font-weight: 600;
-    min-width: 42px;
+    min-width: 54px;
     text-align: center;
     flex-shrink: 0;
   }
@@ -364,7 +364,7 @@
     font-size: 11px;
     flex-shrink: 0;
     user-select: none;
-    opacity: 0.5;
+    opacity: 0.7;
   }
 
   .search-hl {
@@ -504,12 +504,12 @@
       </div>
       <div class="header-actions">
         <button class="btn-toolbar" id="btn-copy">Copy</button>
-        <button class="btn-toolbar active" id="btn-limits">Limits</button>
+        <button class="btn-toolbar active" id="btn-limits" aria-expanded="true">Limits</button>
         <button class="btn-toolbar" id="btn-clear">Clear</button>
       </div>
     </div>
     <div class="filters-row" id="filters-row">
-      <input type="text" id="search-input" placeholder="Search logs... (Ctrl+F)">
+      <input type="text" id="search-input" placeholder="Search logs... (Ctrl+F)" aria-label="Search parsed log lines">
       <span id="search-count" style="font-size:10px;font-family:var(--mono);color:var(--text-ghost);min-width:60px;"></span>
       <div class="filter-sep"></div>
       <!-- filter chips injected by js -->
@@ -588,21 +588,47 @@ const CATEGORIES = {
   dml:        { color: '#e8853d', label: 'DML' },
   debug:      { color: '#5cc9c2', label: 'DEBUG' },
   unit:       { color: '#7c8dea', label: 'UNIT' },
-  execution:  { color: '#888',    label: 'EXEC' },
+  execution:  { color: '#888888', label: 'EXEC' },
   limit:      { color: '#e05577', label: 'LIMIT' },
   error:      { color: '#ff4444', label: 'ERROR' },
   validation: { color: '#b48ade', label: 'VALID' },
   workflow:   { color: '#6db36d', label: 'WF' },
   flow:       { color: '#4db8d8', label: 'FLOW' },
   callout:    { color: '#d4a056', label: 'HTTP' },
-  system:     { color: '#666',    label: 'SYS' },
+  system:     { color: '#666666', label: 'SYS' },
   header:     { color: '#9a7bd4', label: 'HDR' },
-  unknown:    { color: '#555',    label: '???' },
+  unknown:    { color: '#555555', label: '???' },
 };
 
 const DEBUG_LEVEL_COLORS = {
   ERROR: '#ff4444', WARN: '#f4c542', INFO: '#5cc9c2',
-  DEBUG: '#7c8dea', FINE: '#666', FINER: '#555', FINEST: '#444',
+  DEBUG: '#7c8dea', FINE: '#808080', FINER: '#707070', FINEST: '#606060',
+};
+
+// -- short readable labels for event types (used in log badges) --
+const EVENT_LABELS = {
+  CODE_UNIT_STARTED: 'UNIT\u25B8', CODE_UNIT_FINISHED: 'UNIT\u25C2',
+  METHOD_ENTRY: 'MTHD\u25B8', METHOD_EXIT: 'MTHD\u25C2',
+  CONSTRUCTOR_ENTRY: 'CTOR\u25B8', CONSTRUCTOR_EXIT: 'CTOR\u25C2',
+  SYSTEM_METHOD_ENTRY: 'SYS\u25B8', SYSTEM_METHOD_EXIT: 'SYS\u25C2',
+  TRIGGER_STARTED: 'TRGR\u25B8', TRIGGER_FINISHED: 'TRGR\u25C2',
+  VF_APEX_CALL_START: 'VF\u25B8', VF_APEX_CALL_END: 'VF\u25C2',
+  EXECUTION_STARTED: 'EXEC\u25B8', EXECUTION_FINISHED: 'EXEC\u25C2',
+  DML_END: 'DML\u25C2',
+  HEAP_ALLOCATE: 'HEAP+', HEAP_DEALLOCATE: 'HEAP\u2212',
+  STATEMENT_EXECUTE: 'STMT', VARIABLE_ASSIGNMENT: 'VAR',
+  VARIABLE_SCOPE_BEGIN: 'SCOPE', ENTERING_MANAGED_PKG: 'PKG',
+  FATAL_ERROR: 'FATAL', EXCEPTION_THROWN: 'EXCEPT',
+  VALIDATION_RULE: 'VRULE', VALIDATION_FORMULA: 'VFORM',
+  VALIDATION_PASS: 'VPASS', VALIDATION_ERROR: 'VERROR', VALIDATION_FAIL: 'VFAIL',
+  WF_RULE_EVAL_BEGIN: 'WF\u25B8', WF_RULE_EVAL_END: 'WF\u25C2',
+  WF_CRITERIA_BEGIN: 'WFCRT\u25B8', WF_CRITERIA_END: 'WFCRT\u25C2',
+  WF_FIELD_UPDATE: 'WFUPD', WF_ACTION: 'WFACT',
+  FLOW_START_INTERVIEW_BEGIN: 'FLOW\u25B8', FLOW_START_INTERVIEW_END: 'FLOW\u25C2',
+  FLOW_ELEMENT_BEGIN: 'FELEM\u25B8', FLOW_ELEMENT_END: 'FELEM\u25C2',
+  FLOW_VALUE_ASSIGNMENT: 'FVAR', FLOW_ACTIONCALL_DETAIL: 'FCALL',
+  CALLOUT_REQUEST: 'HTTP\u25B8', CALLOUT_RESPONSE: 'HTTP\u25C2',
+  NAMED_CREDENTIAL_REQUEST: 'NCRED\u25B8', NAMED_CREDENTIAL_RESPONSE: 'NCRED\u25C2',
 };
 
 // -- filter categories shown as chips --
@@ -635,9 +661,7 @@ const filtersRow = $('#filters-row');
 
 // -- escapes html for safe insertion --
 function esc(str) {
-  const d = document.createElement('div');
-  d.textContent = str;
-  return d.innerHTML;
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 // -- highlights search matches in text --
@@ -732,7 +756,7 @@ function parseLog(rawLog) {
   const dmlRows = dmlOps.reduce((s, l) => s + (l.dmlInfo ? l.dmlInfo.rows : 0), 0);
 
   const firstNano = lines.find(l => l.nanos)?.nanos;
-  const lastNano = [...lines].reverse().find(l => l.nanos)?.nanos;
+  const lastNano = lines.findLast(l => l.nanos)?.nanos;
   const execTimeMs = firstNano && lastNano ? ((lastNano - firstNano) / 1e6).toFixed(1) : null;
 
   // category counts
@@ -859,10 +883,11 @@ function renderLine(line) {
   }
 
   // default
-  return `<div class="log-line" style="color:${color};background:${bg};border-left-color:${color}33;opacity:0.8">
+  const label = EVENT_LABELS[line.eventType] || cat.label;
+  return `<div class="log-line" style="color:${color};background:${bg};border-left-color:${color}33">
     ${num}
     <span class="log-timestamp">${esc(line.timestamp || '')}</span>
-    <span class="log-badge" style="color:${color};background:${color}18;opacity:0.7">${esc((line.eventType || '').substring(0, 8))}</span>
+    <span class="log-badge" style="color:${color};background:${color}18">${esc(label)}</span>
     <span class="log-content" style="color:var(--text-dim)">${highlight(line.rest, term)}</span>
   </div>`;
 }
@@ -939,6 +964,7 @@ function renderFilters() {
     const active = state.activeFilters.has(cat);
     const chip = document.createElement('button');
     chip.className = 'filter-chip';
+    chip.setAttribute('aria-pressed', active);
     chip.style.cssText = active
       ? `background:${c.color}20;border-color:${c.color};color:${c.color}`
       : '';
@@ -959,8 +985,9 @@ function renderFilters() {
 
   const hideChip = document.createElement('button');
   hideChip.className = 'filter-chip';
+  hideChip.setAttribute('aria-pressed', state.hideSystem);
   hideChip.style.cssText = state.hideSystem
-    ? 'background:var(--error)18;border-color:var(--error);color:var(--error)'
+    ? 'background:rgba(255,68,68,0.09);border-color:var(--error);color:var(--error)'
     : '';
   hideChip.textContent = 'Hide System';
   hideChip.addEventListener('click', () => {
@@ -1095,6 +1122,7 @@ function showParsedView() {
   renderLimits();
   renderFilters();
   renderLogLines();
+  searchInput.focus();
 }
 
 // -- resets to input view --
@@ -1107,6 +1135,7 @@ function resetToInput() {
     searchTerm: '', hideSystem: false, showLimits: true, categoryCounts: {},
   };
   searchInput.value = '';
+  logInput.focus();
 }
 
 // -- sample log --
@@ -1246,7 +1275,9 @@ $('#btn-clear').addEventListener('click', resetToInput);
 $('#btn-limits').addEventListener('click', () => {
   state.showLimits = !state.showLimits;
   limitsPanel.classList.toggle('hidden', !state.showLimits);
-  $('#btn-limits').classList.toggle('active', state.showLimits);
+  const btn = $('#btn-limits');
+  btn.classList.toggle('active', state.showLimits);
+  btn.setAttribute('aria-expanded', state.showLimits);
 });
 
 // search

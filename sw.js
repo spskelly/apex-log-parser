@@ -1,19 +1,28 @@
-const CACHE_NAME = 'apex-log-parser-v2';
+const CACHE_NAME = 'apex-log-parser-v3';
+const FONT_CSS_URL = 'https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap';
 const ASSETS = [
   './',
   './index.html',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
-  'https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap'
+  FONT_CSS_URL
 ];
 
-// cache core assets on install
+// cache core assets on install, including referenced font files
 self.addEventListener('install', (e) => {
   e.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(ASSETS))
-      .then(() => self.skipWaiting())
+    caches.open(CACHE_NAME).then(async (cache) => {
+      await cache.addAll(ASSETS);
+      // fetch the Google Fonts CSS and pre-cache the .woff2 files it references
+      try {
+        const resp = await fetch(FONT_CSS_URL);
+        const css = await resp.text();
+        const fontUrls = [...css.matchAll(/url\((https:\/\/fonts\.gstatic\.com\/[^)]+)\)/g)].map(m => m[1]);
+        await Promise.all(fontUrls.map(url => cache.add(url).catch(() => {})));
+      } catch (_) { /* font files will be cached at runtime as fallback */ }
+      return self.skipWaiting();
+    })
   );
 });
 
