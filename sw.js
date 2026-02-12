@@ -41,6 +41,7 @@ self.addEventListener('activate', (e) => {
 
 // cache-first with network fallback; offline fallback for navigation
 self.addEventListener('fetch', (e) => {
+  if (!e.request.url.startsWith('http')) return;
   e.respondWith(
     caches.match(e.request)
       .then((cached) => cached || fetch(e.request)
