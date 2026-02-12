@@ -141,6 +141,9 @@ let state = {
   categoryCounts: {},
   pairs: new Map(),
   highlightRange: null,
+  matchIndices: [],
+  currentMatchPos: -1,
+  matchSet: new Set(),
 };
 
 // -- dom refs --
@@ -316,7 +319,7 @@ function parseLog(rawLog) {
 // -- filters the parsed lines based on current state --
 function getFilteredLines() {
   let lines = state.lines;
-  const { activeFilters, searchTerm, hideSystem } = state;
+  const { activeFilters, hideSystem } = state;
 
   if (activeFilters.size > 0) {
     lines = lines.filter(l => activeFilters.has(l.category));
@@ -326,16 +329,17 @@ function getFilteredLines() {
     lines = lines.filter(l => l.category !== 'system' && l.category !== 'execution');
   }
 
-  if (searchTerm) {
-    const t = searchTerm.toLowerCase();
-    lines = lines.filter(l =>
-      l.raw?.toLowerCase().includes(t) ||
-      l.debugMessage?.toLowerCase().includes(t) ||
-      l.soqlQuery?.toLowerCase().includes(t)
-    );
-  }
-
   return lines;
+}
+
+function lineMatchesSearch(line, term) {
+  if (!term) return false;
+  const t = term.toLowerCase();
+  return (
+    (line.raw && line.raw.toLowerCase().includes(t)) ||
+    (line.debugMessage && line.debugMessage.toLowerCase().includes(t)) ||
+    (line.soqlQuery && line.soqlQuery.toLowerCase().includes(t))
+  );
 }
 
 // -- renders a single log line to html --
@@ -354,10 +358,11 @@ function renderLine(line) {
   if (range && line.idx >= range.start && line.idx <= range.end) {
     hlClass = (line.idx === range.start || line.idx === range.end) ? ' scope-hl scope-hl-cap' : ' scope-hl';
   }
+  const matchClass = state.matchSet.has(line.idx) ? ' search-match' : '';
 
   // header lines
   if (!line.eventType) {
-    return `<div class="log-line${hlClass}" data-idx="${line.idx}" style="color:${color};background:${bg}">
+    return `<div class="log-line${hlClass}${matchClass}" data-idx="${line.idx}" style="color:${color};background:${bg}">
       ${num}
       <span class="log-content">${highlight(line.raw, term)}</span>
     </div>`;
@@ -366,7 +371,7 @@ function renderLine(line) {
   // user_debug
   if (line.eventType === 'USER_DEBUG') {
     const lc = DEBUG_LEVEL_COLORS[line.debugLevel] || color;
-    return `<div class="log-line${hlClass}" data-idx="${line.idx}" style="background:${bg};border-left-color:${lc}">
+    return `<div class="log-line${hlClass}${matchClass}" data-idx="${line.idx}" style="background:${bg};border-left-color:${lc}">
       ${num}
       <span class="log-timestamp">${esc(line.timestamp)}</span>
       <span class="log-badge" style="color:${lc};background:${lc}18">${esc(line.debugLevel || '')}</span>
@@ -376,7 +381,7 @@ function renderLine(line) {
 
   // soql begin
   if (line.eventType === 'SOQL_EXECUTE_BEGIN') {
-    return `<div class="log-line${hlClass}" data-idx="${line.idx}" style="background:${bg};border-left-color:${color}">
+    return `<div class="log-line${hlClass}${matchClass}" data-idx="${line.idx}" style="background:${bg};border-left-color:${color}">
       ${num}
       <span class="log-timestamp">${esc(line.timestamp)}</span>
       <span class="log-badge${hasPair ? ' clickable-badge' : ''}" style="color:${color};background:${color}18"${pairAttr}>SOQL</span>
@@ -386,7 +391,7 @@ function renderLine(line) {
 
   // soql end
   if (line.eventType === 'SOQL_EXECUTE_END') {
-    return `<div class="log-line${hlClass}" data-idx="${line.idx}" style="background:${bg};border-left-color:${color}">
+    return `<div class="log-line${hlClass}${matchClass}" data-idx="${line.idx}" style="background:${bg};border-left-color:${color}">
       ${num}
       <span class="log-timestamp">${esc(line.timestamp)}</span>
       <span${pairAttr} style="color:${color}${hasPair ? ';cursor:pointer' : ''}">↳ ${line.soqlRows != null ? line.soqlRows + ' rows returned' : esc(line.rest)}</span>
@@ -395,7 +400,7 @@ function renderLine(line) {
 
   // dml begin
   if (line.eventType === 'DML_BEGIN' && line.dmlInfo) {
-    return `<div class="log-line${hlClass}" data-idx="${line.idx}" style="background:${bg};border-left-color:${color}">
+    return `<div class="log-line${hlClass}${matchClass}" data-idx="${line.idx}" style="background:${bg};border-left-color:${color}">
       ${num}
       <span class="log-timestamp">${esc(line.timestamp)}</span>
       <span class="log-badge${hasPair ? ' clickable-badge' : ''}" style="color:${color};background:${color}18"${pairAttr}>DML</span>
@@ -405,7 +410,7 @@ function renderLine(line) {
 
   // limit events
   if (line.category === 'limit') {
-    return `<div class="log-line${hlClass}" data-idx="${line.idx}" style="border-left-color:${color}">
+    return `<div class="log-line${hlClass}${matchClass}" data-idx="${line.idx}" style="border-left-color:${color}">
       ${num}
       <span class="log-timestamp">${esc(line.timestamp)}</span>
       <span style="color:${color}">${esc(line.eventType)}</span>
@@ -414,7 +419,7 @@ function renderLine(line) {
 
   // default
   const label = EVENT_LABELS[line.eventType] || cat.label;
-  return `<div class="log-line${hlClass}" data-idx="${line.idx}" style="color:${color};background:${bg};border-left-color:${color}33">
+  return `<div class="log-line${hlClass}${matchClass}" data-idx="${line.idx}" style="color:${color};background:${bg};border-left-color:${color}33">
     ${num}
     <span class="log-timestamp">${esc(line.timestamp || '')}</span>
     <span class="log-badge${hasPair ? ' clickable-badge' : ''}" style="color:${color};background:${color}18"${pairAttr}>${esc(label)}</span>
@@ -532,12 +537,13 @@ function renderFilters() {
 const RENDER_CHUNK = 2000;
 let renderedCount = 0;
 let currentObserver = null;
+let currentFiltered = [];
 
 function updateLineCountBadge(filtered) {
   const total = state.lines.length;
   const shown = filtered.length;
   const badge = $('#line-count');
-  if (state.activeFilters.size > 0 || state.searchTerm || state.hideSystem) {
+  if (state.activeFilters.size > 0 || state.hideSystem) {
     badge.textContent = `${shown.toLocaleString()} / ${total.toLocaleString()} lines`;
     badge.style.color = 'var(--warn)';
   } else {
@@ -546,11 +552,18 @@ function updateLineCountBadge(filtered) {
   }
 }
 
-function updateSearchCount(filtered) {
+function updateSearchCount() {
   const countEl = $('#search-count');
-  if (state.searchTerm) {
-    countEl.textContent = `${filtered.length} match${filtered.length !== 1 ? 'es' : ''}`;
-    countEl.style.color = filtered.length === 0 ? 'var(--error)' : 'var(--text-ghost)';
+  if (state.searchTerm && state.matchIndices.length > 0) {
+    if (state.currentMatchPos >= 0) {
+      countEl.textContent = `${state.currentMatchPos + 1} of ${state.matchIndices.length}`;
+    } else {
+      countEl.textContent = `${state.matchIndices.length} match${state.matchIndices.length !== 1 ? 'es' : ''}`;
+    }
+    countEl.style.color = 'var(--text-ghost)';
+  } else if (state.searchTerm) {
+    countEl.textContent = '0 results';
+    countEl.style.color = 'var(--error)';
   } else {
     countEl.textContent = '';
   }
@@ -611,8 +624,22 @@ function renderLogLines() {
   if (currentObserver) { currentObserver.disconnect(); currentObserver = null; }
   state.highlightRange = null;
   const filtered = getFilteredLines();
+  currentFiltered = filtered;
 
-  updateSearchCount(filtered);
+  // compute search matches
+  state.matchIndices = [];
+  state.matchSet = new Set();
+  state.currentMatchPos = -1;
+  if (state.searchTerm) {
+    for (let i = 0; i < filtered.length; i++) {
+      if (lineMatchesSearch(filtered[i], state.searchTerm)) {
+        state.matchIndices.push(i);
+        state.matchSet.add(filtered[i].idx);
+      }
+    }
+  }
+
+  updateSearchCount();
   updateLineCountBadge(filtered);
 
   if (!filtered.length) {
@@ -665,6 +692,7 @@ function resetToInput() {
     lines: [], limits: [], stats: {}, activeFilters: new Set(),
     searchTerm: '', hideSystem: false, showLimits: true, categoryCounts: {},
     pairs: new Map(), highlightRange: null,
+    matchIndices: [], currentMatchPos: -1, matchSet: new Set(),
   };
   searchInput.value = '';
   logInput.focus();
@@ -768,6 +796,41 @@ Execute Anonymous: }
 14:23:02.30 (15034567)|CODE_UNIT_FINISHED|execute_anonymous_apex
 14:23:02.30 (15034567)|EXECUTION_FINISHED`;
 
+// -- search match navigation --
+function ensureRenderedUpTo(targetPos) {
+  while (renderedCount <= targetPos && renderedCount < currentFiltered.length) {
+    loadMoreLines(currentFiltered);
+  }
+}
+
+function applyCurrentMatchToDOM() {
+  const old = logLinesEl.querySelector('.search-match-current');
+  if (old) old.classList.remove('search-match-current');
+  if (state.currentMatchPos < 0 || state.currentMatchPos >= state.matchIndices.length) return;
+
+  const filteredPos = state.matchIndices[state.currentMatchPos];
+  const lineIdx = currentFiltered[filteredPos].idx;
+  const el = logLinesEl.querySelector(`.log-line[data-idx="${lineIdx}"]`);
+  if (el) el.classList.add('search-match-current');
+}
+
+function navigateToMatch(pos) {
+  if (state.matchIndices.length === 0) return;
+  if (pos >= state.matchIndices.length) pos = 0;
+  if (pos < 0) pos = state.matchIndices.length - 1;
+
+  state.currentMatchPos = pos;
+  updateSearchCount();
+
+  const filteredPos = state.matchIndices[pos];
+  ensureRenderedUpTo(filteredPos);
+  applyCurrentMatchToDOM();
+
+  const lineIdx = currentFiltered[filteredPos].idx;
+  const el = logLinesEl.querySelector(`.log-line[data-idx="${lineIdx}"]`);
+  if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+}
+
 // -- apply/remove scope highlights on existing DOM without re-render --
 function applyHighlightsToDOM() {
   const lines = logLinesEl.querySelectorAll('.log-line');
@@ -860,8 +923,25 @@ searchInput.addEventListener('input', () => {
   searchTimeout = setTimeout(() => {
     state.searchTerm = searchInput.value;
     renderLogLines();
+    if (state.matchIndices.length > 0) {
+      navigateToMatch(0);
+    }
   }, 150);
 });
+
+searchInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    if (e.shiftKey) {
+      navigateToMatch(state.currentMatchPos - 1);
+    } else {
+      navigateToMatch(state.currentMatchPos + 1);
+    }
+  }
+});
+
+$('#search-prev').addEventListener('click', () => navigateToMatch(state.currentMatchPos - 1));
+$('#search-next').addEventListener('click', () => navigateToMatch(state.currentMatchPos + 1));
 
 // drag and drop
 dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragging'); });
