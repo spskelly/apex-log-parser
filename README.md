@@ -1,18 +1,13 @@
 # Apex Debug Log Parser
 
-A browser-based Progressive Web App for parsing Salesforce Apex debug logs into structured, filterable, color-coded views with governor limit tracking.
+A lightweight Salesforce debug log viewer that runs as a Progressive Web App. Paste a log and instantly get color-coded, filterable, searchable output with governor limit tracking — no server, no login, no data ever leaves your browser.
 
-**No download required — [use it in your browser &rarr;](https://spskelly.github.io/apex-log-parser/)**
+## Install
 
----
+1. **Open** [spskelly.github.io/apex-log-parser](https://spskelly.github.io/apex-log-parser/)
+2. **Install** — click the install icon in the address bar (or browser menu &rarr; "Install Apex Debug Log Parser")
 
-## Why This Exists
-
-Salesforce debug logs are dense walls of text. Finding the SOQL that returned too many rows, spotting a governor limit creeping toward its cap, or tracing execution flow through triggers and classes means a lot of scrolling and squinting. This tool turns raw logs into something you can actually read — color-coded by event type, filterable, searchable, with governor limits visualized at a glance.
-
-## Install as an App
-
-Apex Debug Log Parser is a Progressive Web App. Visit the site once and you can install it to your device for fully offline use — no server, no login, no data ever leaves your browser.
+That's it. The app works completely offline once installed — all assets (including fonts) are pre-cached by the service worker.
 
 | Platform | How to Install |
 |---|---|
@@ -20,7 +15,13 @@ Apex Debug Log Parser is a Progressive Web App. Visit the site once and you can 
 | **Safari (iOS)** | Tap **Share** &rarr; **Add to Home Screen** |
 | **Android** | Tap the browser menu &rarr; **Install app** |
 
-Once installed, the app works completely offline. All assets (including fonts) are pre-cached by the service worker.
+> No install required to use the app — it works in any modern browser. Installing just gives you an app icon, offline support, and a standalone window.
+
+---
+
+## Why This Exists
+
+Salesforce debug logs are dense walls of text. Finding the SOQL that returned too many rows, spotting a governor limit creeping toward its cap, or tracing execution flow through triggers and classes means a lot of scrolling and squinting. This tool turns raw logs into something you can actually read — color-coded by event type, filterable, searchable, with governor limits visualized at a glance.
 
 ## Features
 
@@ -122,7 +123,7 @@ Everything runs client-side. Your logs are **never** uploaded, transmitted, or s
 | | |
 |---|---|
 | **Language** | Vanilla HTML, CSS, and JavaScript — no frameworks, no build tools |
-| **Architecture** | Single-file application (`index.html`) with a separate service worker (`sw.js`) |
+| **Architecture** | `index.html` + separate CSS and JS files, with a service worker (`sw.js`) |
 | **Fonts** | IBM Plex Mono and IBM Plex Sans (Google Fonts, pre-cached for offline use) |
 | **PWA** | Web app manifest + service worker with cache-first strategy and offline fallback |
 
@@ -130,7 +131,9 @@ Everything runs client-side. Your logs are **never** uploaded, transmitted, or s
 
 ```
 apex-log-parser/
-├── index.html       # Entire application (markup, styles, and ~900 lines of JS)
+├── index.html       # Markup and structure
+├── styles.css       # All styles
+├── app.js           # Application logic (~900 lines)
 ├── sw.js            # Service worker — pre-caches all assets including fonts
 ├── manifest.json    # PWA manifest
 ├── icon-192.png     # App icon (192×192)
